@@ -48,6 +48,8 @@ export function normalizeProject(p: Partial<Project>): Project {
       note: s.note ?? '',
       kind: s.kind ?? 'scene',
       collapsed: s.collapsed ?? false,
+      orientation: s.orientation === 'vertical' ? 'vertical' : 'horizontal',
+      locked: s.locked ?? false,
     })),
     threads: (p.threads ?? []).map((t) => ({
       id: t.id,

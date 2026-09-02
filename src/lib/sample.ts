@@ -39,7 +39,18 @@ export function sampleProject(): Project {
     kind: Scene['kind'],
     event = '',
     note = '',
-  ): Scene => ({ id, parentId, title, ratio, event, note, kind, collapsed: false });
+  ): Scene => ({
+    id,
+    parentId,
+    title,
+    ratio,
+    event,
+    note,
+    kind,
+    collapsed: false,
+    orientation: 'horizontal',
+    locked: false,
+  });
 
   const scenes: Scene[] = [
     s('sc_open', null, '日常の朝', 100, 'scene', '主人公が誰にも言えない荷物を鞄に詰めて家を出る', '説明はここに寄せない。持ち物のアップだけ'),
