@@ -90,6 +90,17 @@ npm run test     # ロジックのテスト
 `npm run build:single` で、`dist-single/index.html` に1ファイル完結のHTMLを書き出せます
 （ファイルをブラウザで開くだけで動きます）。
 
+### スマホ（iPhone）でアプリとして使う（PWA）
+
+`main` ブランチに push すると GitHub Actions が自動でビルドし、GitHub Pages に公開します
+（リポジトリの Settings → Pages → Source を「GitHub Actions」にしておいてください）。
+公開されたURLをiPhoneのSafariで開き、共有ボタン → **「ホーム画面に追加」** を選ぶと、
+アイコン付きのアプリとしてホーム画面から起動できます（オフラインでも動作します）。
+
+`npm run build`（通常ビルド）には manifest とService Workerが含まれており、PWAとして
+インストール可能です。`npm run build:single` の1ファイルHTMLはPWA化の対象外です
+（ファイルを直接開いて使う用途のため）。
+
 ### 保存とバックアップ
 
 編集内容はブラウザの localStorage に自動保存されます。
@@ -122,6 +133,8 @@ Link   { id, sceneId, threadId, role, note }               // 両者の接続（
 ## 構成
 
 ```
+public/
+  icon-*.png、apple-touch-icon.png   PWA用アイコン
 src/
   lib/
     types.ts     データ定義
