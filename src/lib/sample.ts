@@ -1,5 +1,5 @@
 import { uid } from './layout';
-import type { Project, Scene, Thread, Link } from './types';
+import type { Character, Dialogue, Project, Scene, Thread, Link } from './types';
 
 export const THREAD_COLORS = [
   '#5b8dd9',
@@ -25,6 +25,8 @@ export function emptyProject(title = '新しいネーム'): Project {
     scenes: [],
     threads: [],
     links: [],
+    characters: [],
+    dialogues: [],
     updatedAt: Date.now(),
   };
 }
@@ -101,6 +103,24 @@ export function sampleProject(): Project {
     l('sc_steal', 'th_hide', 'twist', '隠していた物が具体的な「資料」だと分かり、問いが形を変える'),
   ];
 
+  const characters: Character[] = [
+    { id: 'ch_hero', name: '主人公', color: THREAD_COLORS[0] },
+    { id: 'ch_coat', name: 'コートの人物', color: THREAD_COLORS[1] },
+  ];
+
+  const dialogues: Dialogue[] = [
+    {
+      id: uid('dl'),
+      sceneId: 'sc_tail',
+      characterId: 'ch_hero',
+      text: '誰だ\nついてくるのは',
+      x: 58,
+      y: 10,
+      width: 30,
+      height: 42,
+    },
+  ];
+
   return {
     id: uid('pj'),
     title: 'サンプル：読切ネーム',
@@ -109,6 +129,8 @@ export function sampleProject(): Project {
     scenes,
     threads,
     links,
+    characters,
+    dialogues,
     updatedAt: Date.now(),
   };
 }

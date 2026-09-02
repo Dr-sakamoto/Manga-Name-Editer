@@ -43,6 +43,7 @@ function SceneInspector({ api, id }: { api: Api; id: ID }) {
   const eff = round2(effectiveRatio(api.project.scenes, id));
   const links = api.project.links.filter((l) => l.sceneId === id);
   const threadMap = new Map(api.project.threads.map((t) => [t.id, t]));
+  const sceneDialogues = api.project.dialogues.filter((d) => d.sceneId === id);
 
   // このシーンの時点で立っていて、まだ回収されていない予測
   const pending = api.analyses.filter((a) => {
@@ -136,17 +137,11 @@ function SceneInspector({ api, id }: { api: Api; id: ID }) {
                 ))}
               </div>
             </label>
-            <button
-              className={`tiny${scene.locked ? ' primary' : ''}`}
-              title={
-                scene.locked
-                  ? 'ロック中：他のコマの含有率・向きの変更で行が組み替わらない'
-                  : 'ロックすると、他のコマの含有率・向きを変えても押しのけられなくなる'
-              }
-              onClick={() => api.patchScene(id, { locked: !scene.locked })}
-            >
-              {scene.locked ? '🔒 ロック中' : '🔓 ロック'}
-            </button>
+            {scene.locked && (
+              <span className="hint" title="ページ割り画面のコマ右上のアイコンでロックを解除できます">
+                🔒 ロック中
+              </span>
+            )}
           </div>
         )}
 
@@ -192,6 +187,42 @@ function SceneInspector({ api, id }: { api: Api; id: ID }) {
           <button className="danger" onClick={() => api.deleteScene(id)}>
             削除
           </button>
+        </div>
+      </div>
+
+      <div className="section">
+        <h3>セリフ</h3>
+        {sceneDialogues.length === 0 && <div className="empty">まだありません</div>}
+        {sceneDialogues.map((d) => (
+          <div className="dialogue-row" key={d.id}>
+            <select
+              value={d.characterId ?? ''}
+              onChange={(e) => api.patchDialogue(d.id, { characterId: e.target.value || null })}
+            >
+              <option value="">（役なし）</option>
+              {api.project.characters.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name || '無名'}
+                </option>
+              ))}
+            </select>
+            <textarea
+              className="vertical-text"
+              rows={4}
+              value={d.text}
+              placeholder="セリフ（改行で好きな位置で折り返せます）"
+              onChange={(e) => api.patchDialogue(d.id, { text: e.target.value }, `dlt${d.id}`)}
+            />
+            <button className="ghost tiny danger" onClick={() => api.deleteDialogue(d.id)}>
+              ×
+            </button>
+          </div>
+        ))}
+        <button className="tiny" onClick={() => api.addDialogue(id)}>
+          ＋セリフを追加
+        </button>
+        <div className="hint" style={{ marginTop: 4 }}>
+          吹き出しの位置や大きさは「ページ割り」タブでコマを選ぶと調整できます。
         </div>
       </div>
 
