@@ -477,8 +477,10 @@ label.field > span {
 }
 
 /* ---------- page map ---------- */
+/* 右綴じ：見開き自体も右→左の順に並べる（1見開き目が右上、次が左へ） */
 .spread-grid {
   display: flex;
+  flex-direction: row-reverse;
   flex-wrap: wrap;
   gap: 16px;
 }
