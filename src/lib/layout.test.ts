@@ -12,13 +12,31 @@ import {
   moveScene,
   nudgeScene,
   outdentScene,
+  round2,
   splitScene,
   toSpreads,
 } from './layout';
 import type { Link, Project, Scene, Thread } from './types';
 
-function scene(id: string, title: string, ratio: number, parentId: string | null = null): Scene {
-  return { id, parentId, title, ratio, event: '', note: '', kind: 'scene', collapsed: false };
+function scene(
+  id: string,
+  title: string,
+  ratio: number,
+  parentId: string | null = null,
+  extra: Partial<Pick<Scene, 'orientation' | 'locked'>> = {},
+): Scene {
+  return {
+    id,
+    parentId,
+    title,
+    ratio,
+    event: '',
+    note: '',
+    kind: 'scene',
+    collapsed: false,
+    orientation: extra.orientation ?? 'horizontal',
+    locked: extra.locked ?? false,
+  };
 }
 
 function project(scenes: Scene[], threads: Thread[] = [], links: Link[] = []): Project {
@@ -86,11 +104,41 @@ describe('computePages', () => {
     const pages = computePages(p, computeLayout(p));
     expect(pages).toHaveLength(4);
     expect(pages[0].slices).toEqual([
-      { sceneId: 'a', from: 0, to: 100, continued: true, startsHere: true, endsHere: false },
+      {
+        sceneId: 'a',
+        from: 0,
+        to: 100,
+        continued: true,
+        startsHere: true,
+        endsHere: false,
+        columnIndex: 0,
+        columnCount: 1,
+        widthPct: 100,
+      },
     ]);
     expect(pages[1].slices).toEqual([
-      { sceneId: 'a', from: 0, to: 50, continued: true, startsHere: false, endsHere: true },
-      { sceneId: 'b', from: 50, to: 100, continued: false, startsHere: true, endsHere: true },
+      {
+        sceneId: 'a',
+        from: 0,
+        to: 50,
+        continued: true,
+        startsHere: false,
+        endsHere: true,
+        columnIndex: 0,
+        columnCount: 1,
+        widthPct: 100,
+      },
+      {
+        sceneId: 'b',
+        from: 50,
+        to: 100,
+        continued: false,
+        startsHere: true,
+        endsHere: true,
+        columnIndex: 0,
+        columnCount: 1,
+        widthPct: 100,
+      },
     ]);
     expect(pages[1].filled).toBe(100);
     expect(pages[2].filled).toBe(0);
@@ -108,6 +156,53 @@ describe('computePages', () => {
     const pages = computePages(p, computeLayout(p));
     expect(toSpreads(pages, true).map((s) => s.map((x) => x.page))).toEqual([[1], [2, 3], [4]]);
     expect(toSpreads(pages, false).map((s) => s.map((x) => x.page))).toEqual([[1, 2], [3, 4]]);
+  });
+});
+
+describe('コマの縦横・ロック', () => {
+  it('縦長コマが連続すると同じ行に横並びで入る', () => {
+    const p = project([
+      scene('a', 'A', 30, null, { orientation: 'vertical' }),
+      scene('b', 'B', 60, null, { orientation: 'vertical' }),
+      scene('c', 'C', 100),
+    ]);
+    const layout = computeLayout(p);
+    const a = layout.byId.get('a')!;
+    const b = layout.byId.get('b')!;
+    const cScene = layout.byId.get('c')!;
+    // 行の高さは含有率の合計、幅は互いの比率で分け合う
+    expect(a).toMatchObject({ startPct: 0, endPct: 90, columnIndex: 0, columnCount: 2, widthPct: round2((100 * 30) / 90) });
+    expect(b).toMatchObject({ startPct: 0, endPct: 90, columnIndex: 1, columnCount: 2, widthPct: round2((100 * 60) / 90) });
+    // 横長コマは単独の行になり、直前の行の後ろから始まる
+    expect(cScene).toMatchObject({ startPct: 90, endPct: 190, columnIndex: 0, columnCount: 1, widthPct: 100 });
+    expect(layout.usedPct).toBe(190);
+  });
+
+  it('ロックしたコマは縦長でも常に単独の行になる', () => {
+    const p = project([
+      scene('a', 'A', 30, null, { orientation: 'vertical' }),
+      scene('b', 'B', 60, null, { orientation: 'vertical', locked: true }),
+      scene('c', 'C', 40, null, { orientation: 'vertical' }),
+    ]);
+    const layout = computeLayout(p);
+    expect(layout.byId.get('a')).toMatchObject({ startPct: 0, endPct: 30, columnCount: 1 });
+    expect(layout.byId.get('b')).toMatchObject({ startPct: 30, endPct: 90, columnCount: 1 });
+    expect(layout.byId.get('c')).toMatchObject({ startPct: 90, endPct: 130, columnCount: 1 });
+  });
+
+  it('未ロックのコマの含有率が変わっても、ロックしたコマ自身の含有率は変わらない', () => {
+    const before = project([
+      scene('a', 'A', 50, null, { orientation: 'vertical' }),
+      scene('b', 'B', 50, null, { orientation: 'vertical', locked: true }),
+    ]);
+    const after = {
+      ...before,
+      scenes: before.scenes.map((s) => (s.id === 'a' ? { ...s, ratio: 150 } : s)),
+    };
+    const lockedBefore = computeLayout(before).byId.get('b')!;
+    const lockedAfter = computeLayout(after).byId.get('b')!;
+    expect(lockedAfter.lengthPct).toBe(lockedBefore.lengthPct);
+    expect(lockedAfter.widthPct).toBe(lockedBefore.widthPct);
   });
 });
 

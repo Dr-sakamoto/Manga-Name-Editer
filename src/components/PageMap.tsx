@@ -1,7 +1,29 @@
 import { useState } from 'react';
 import type { Api } from '../lib/api';
-import { fmtPages, toSpreads } from '../lib/layout';
+import { fmtPages, toSpreads, type PageSlice } from '../lib/layout';
 import { kindMeta, type ID } from '../lib/types';
+
+/** 同じ行(from/to が同じ)に並ぶスライスをまとめる。行内は列番号順に並んでいる前提 */
+function buildRows(slices: PageSlice[]): PageSlice[][] {
+  const rows: PageSlice[][] = [];
+  for (const slice of slices) {
+    const last = rows[rows.length - 1];
+    const lastHead = last?.[0];
+    const sameRow =
+      last &&
+      lastHead &&
+      slice.columnCount > 1 &&
+      lastHead.from === slice.from &&
+      lastHead.to === slice.to &&
+      last.length < lastHead.columnCount;
+    if (sameRow) {
+      last.push(slice);
+    } else {
+      rows.push([slice]);
+    }
+  }
+  return rows;
+}
 
 /**
  * 見開き単位のページマップ。ブロックを掴んで別のページへ放り込むと、
@@ -76,58 +98,72 @@ export function PageMap({ api }: { api: Api }) {
                   }
                 }}
               >
-                {info.slices.map((slice, si) => {
-                  const scene = sceneMap.get(slice.sceneId);
-                  if (!scene) return null;
-                  const height = slice.to - slice.from;
-                  const selected =
-                    api.selection?.kind === 'scene' && api.selection.id === slice.sceneId;
-                  const hinted = dropHint?.sceneId === slice.sceneId ? ` drop-${dropHint.pos}` : '';
+                {buildRows(info.slices).map((row, ri) => {
+                  const rowHeight = row[0].to - row[0].from;
                   return (
                     <div
-                      key={`${slice.sceneId}-${si}`}
-                      className={`page-slice${selected ? ' selected' : ''}${hinted}${
-                        slice.startsHere ? '' : ' cont-top'
-                      }`}
-                      style={{
-                        height: `${height}%`,
-                        background: tint(kindMeta(scene.kind).color),
-                        borderLeft: `3px solid ${kindMeta(scene.kind).color}`,
-                      }}
-                      draggable
-                      onClick={() => api.selectScene(slice.sceneId)}
-                      onDragStart={(e) => {
-                        e.dataTransfer.effectAllowed = 'move';
-                        e.dataTransfer.setData('text/plain', slice.sceneId);
-                        setDragId(slice.sceneId);
-                      }}
-                      onDragEnd={endDrag}
-                      onDragOver={(e) => {
-                        if (!dragId || dragId === slice.sceneId) return;
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const pos =
-                          (e.clientY - rect.top) / rect.height < 0.5 ? 'before' : 'after';
-                        setDropHint({ sceneId: slice.sceneId, pos });
-                        setDropPage(info.page);
-                      }}
-                      onDragLeave={() =>
-                        setDropHint((h) => (h?.sceneId === slice.sceneId ? null : h))
-                      }
-                      title={`${scene.title || '無題'}（${scene.ratio}%）${
-                        scene.event ? `\n${scene.event}` : ''
-                      }`}
+                      key={`row-${ri}`}
+                      className="page-row"
+                      style={{ height: `${rowHeight}%` }}
                     >
-                      <div className="slice-title">
-                        {slice.startsHere ? '' : '↳ '}
-                        {scene.title || '無題'}
-                      </div>
-                      {height >= 18 && (
-                        <div className="slice-meta">
-                          {slice.continued ? `${Math.round(height)}% / ${scene.ratio}%` : `${Math.round(height)}%`}
-                        </div>
-                      )}
+                      {row.map((slice, si) => {
+                        const scene = sceneMap.get(slice.sceneId);
+                        if (!scene) return null;
+                        const selected =
+                          api.selection?.kind === 'scene' && api.selection.id === slice.sceneId;
+                        const hinted =
+                          dropHint?.sceneId === slice.sceneId ? ` drop-${dropHint.pos}` : '';
+                        return (
+                          <div
+                            key={`${slice.sceneId}-${si}`}
+                            className={`page-slice${selected ? ' selected' : ''}${
+                              scene.locked ? ' locked' : ''
+                            }${hinted}${slice.startsHere ? '' : ' cont-top'}`}
+                            style={{
+                              width: `${slice.widthPct}%`,
+                              background: tint(kindMeta(scene.kind).color),
+                              borderLeft: `3px solid ${kindMeta(scene.kind).color}`,
+                            }}
+                            draggable
+                            onClick={() => api.selectScene(slice.sceneId)}
+                            onDragStart={(e) => {
+                              e.dataTransfer.effectAllowed = 'move';
+                              e.dataTransfer.setData('text/plain', slice.sceneId);
+                              setDragId(slice.sceneId);
+                            }}
+                            onDragEnd={endDrag}
+                            onDragOver={(e) => {
+                              if (!dragId || dragId === slice.sceneId) return;
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const pos =
+                                (e.clientY - rect.top) / rect.height < 0.5 ? 'before' : 'after';
+                              setDropHint({ sceneId: slice.sceneId, pos });
+                              setDropPage(info.page);
+                            }}
+                            onDragLeave={() =>
+                              setDropHint((h) => (h?.sceneId === slice.sceneId ? null : h))
+                            }
+                            title={`${scene.title || '無題'}（${scene.ratio}%）${
+                              scene.locked ? '\nロック中' : ''
+                            }${scene.event ? `\n${scene.event}` : ''}`}
+                          >
+                            {scene.locked && <span className="slice-lock">🔒</span>}
+                            <div className="slice-title">
+                              {slice.startsHere ? '' : '↳ '}
+                              {scene.title || '無題'}
+                            </div>
+                            {rowHeight >= 18 && (
+                              <div className="slice-meta">
+                                {slice.continued
+                                  ? `${Math.round(rowHeight)}% / ${scene.ratio}%`
+                                  : `${Math.round(rowHeight)}%`}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}

@@ -3,6 +3,7 @@ import type { Api } from '../lib/api';
 import { childrenOf, effectiveRatio, fmtPagePos, fmtPages, round2 } from '../lib/layout';
 import {
   LINK_ROLES,
+  PANEL_ORIENTATIONS,
   SCENE_KINDS,
   THREAD_KINDS,
   roleMeta,
@@ -105,6 +106,47 @@ function SceneInspector({ api, id }: { api: Api; id: ID }) {
                 {v}%
               </button>
             ))}
+          </div>
+        )}
+
+        {!isGroup && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 10 }}>
+            <label className="field" style={{ flex: 1 }}>
+              <span>コマの向き</span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {PANEL_ORIENTATIONS.map((o) => (
+                  <button
+                    key={o.value}
+                    className="tiny"
+                    disabled={scene.locked}
+                    title={
+                      o.value === 'vertical'
+                        ? '隣の縦長・未ロックのコマと横に並ぶ'
+                        : 'ページ幅いっぱいの単独の行になる'
+                    }
+                    onClick={() => api.patchScene(id, { orientation: o.value })}
+                    style={
+                      scene.orientation === o.value
+                        ? { background: 'var(--accent)', color: '#12141a', fontWeight: 700 }
+                        : undefined
+                    }
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </label>
+            <button
+              className={`tiny${scene.locked ? ' primary' : ''}`}
+              title={
+                scene.locked
+                  ? 'ロック中：他のコマの含有率・向きの変更で行が組み替わらない'
+                  : 'ロックすると、他のコマの含有率・向きを変えても押しのけられなくなる'
+              }
+              onClick={() => api.patchScene(id, { locked: !scene.locked })}
+            >
+              {scene.locked ? '🔒 ロック中' : '🔓 ロック'}
+            </button>
           </div>
         )}
 

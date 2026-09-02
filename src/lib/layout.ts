@@ -62,7 +62,7 @@ export interface Placement {
   /** ネーム先頭からの累積占有率(%) */
   startPct: number;
   endPct: number;
-  /** 実効占有率(%)。グループは子の合計 */
+  /** 実効占有率(%)。グループは子の合計、行に並ぶ葉は自分自身の占有率 */
   lengthPct: number;
   leaf: boolean;
   depth: number;
@@ -74,6 +74,17 @@ export interface Placement {
   endPage: number;
   /** 開始ページ内での開始位置(0-100) */
   startOffset: number;
+  /** 同じ行の中での自分の列番号(0始まり)。単独行なら常に0 */
+  columnIndex: number;
+  /** 同じ行に並ぶコマの数。単独行なら1 */
+  columnCount: number;
+  /** 行内での自分の横幅シェア(0-100)。単独行なら100 */
+  widthPct: number;
+}
+
+/** そのコマが隣の未ロック・縦長コマと同じ行に並べる対象か */
+function canJoinRow(scene: Scene): boolean {
+  return !scene.locked && scene.orientation === 'vertical';
 }
 
 export interface Layout {
@@ -93,6 +104,34 @@ export function pageOf(pct: number): number {
   return Math.floor(pct / 100 + EPS) + 1;
 }
 
+function makePlacement(
+  scene: Scene,
+  start: number,
+  end: number,
+  leaf: boolean,
+  depth: number,
+  order: number,
+  columnIndex: number,
+  columnCount: number,
+  widthPct: number,
+): Placement {
+  return {
+    sceneId: scene.id,
+    startPct: round2(start),
+    endPct: round2(end),
+    lengthPct: leaf ? round2(Math.max(0, scene.ratio)) : round2(end - start),
+    leaf,
+    depth,
+    order,
+    startPage: pageOf(start),
+    endPage: end - start > EPS ? pageOf(Math.max(start, end - EPS)) : pageOf(start),
+    startOffset: round2(start % 100),
+    columnIndex,
+    columnCount,
+    widthPct: round2(widthPct),
+  };
+}
+
 export function computeLayout(project: Project): Layout {
   const { scenes, totalPages } = project;
   const placements: Placement[] = [];
@@ -100,28 +139,46 @@ export function computeLayout(project: Project): Layout {
   let order = 0;
 
   const walk = (parentId: ID | null, depth: number) => {
-    for (const scene of childrenOf(scenes, parentId)) {
+    const kids = childrenOf(scenes, parentId);
+    let i = 0;
+    while (i < kids.length) {
+      const scene = kids[i];
       const start = cursor;
       const myOrder = order++;
-      const kids = childrenOf(scenes, scene.id);
-      if (kids.length === 0) {
-        cursor += Math.max(0, scene.ratio);
-      } else {
+      const grandKids = childrenOf(scenes, scene.id);
+
+      if (grandKids.length > 0) {
         walk(scene.id, depth + 1);
+        const end = cursor;
+        placements.push(makePlacement(scene, start, end, false, depth, myOrder, 0, 1, 100));
+        i += 1;
+        continue;
       }
+
+      // 葉：自分が縦長・未ロックなら、後続の縦長・未ロックの葉を同じ行にまとめる
+      const row: Scene[] = [scene];
+      if (canJoinRow(scene)) {
+        let j = i + 1;
+        while (j < kids.length) {
+          const next = kids[j];
+          if (childrenOf(scenes, next.id).length > 0) break;
+          if (!canJoinRow(next)) break;
+          row.push(next);
+          j += 1;
+        }
+      }
+      const rowRatioSum = round2(row.reduce((sum, s) => sum + Math.max(0, s.ratio), 0));
+      cursor += rowRatioSum;
       const end = cursor;
-      placements.push({
-        sceneId: scene.id,
-        startPct: round2(start),
-        endPct: round2(end),
-        lengthPct: round2(end - start),
-        leaf: kids.length === 0,
-        depth,
-        order: myOrder,
-        startPage: pageOf(start),
-        endPage: end - start > EPS ? pageOf(Math.max(start, end - EPS)) : pageOf(start),
-        startOffset: round2(start % 100),
+      row.forEach((member, idx) => {
+        const memberOrder = idx === 0 ? myOrder : order++;
+        const widthPct =
+          rowRatioSum > EPS ? (Math.max(0, member.ratio) / rowRatioSum) * 100 : 100 / row.length;
+        placements.push(
+          makePlacement(member, start, end, true, depth, memberOrder, idx, row.length, widthPct),
+        );
       });
+      i += row.length;
     }
   };
   walk(null, 0);
@@ -163,6 +220,12 @@ export interface PageSlice {
   startsHere: boolean;
   /** このページでシーンが終わるか */
   endsHere: boolean;
+  /** 同じ行の中での自分の列番号(0始まり)。単独行なら常に0 */
+  columnIndex: number;
+  /** 同じ行に並ぶコマの数。単独行なら1 */
+  columnCount: number;
+  /** 行内での自分の横幅シェア(0-100)。単独行なら100 */
+  widthPct: number;
 }
 
 export interface PageInfo {
@@ -193,6 +256,9 @@ export function computePages(project: Project, layout: Layout): PageInfo[] {
         continued: p.startPct < pStart - EPS || p.endPct > pEnd + EPS,
         startsHere: p.startPct >= pStart - EPS,
         endsHere: p.endPct <= pEnd + EPS,
+        columnIndex: p.columnIndex,
+        columnCount: p.columnCount,
+        widthPct: p.widthPct,
       });
     }
     const filled = round2(slices.reduce((s, x) => s + (x.to - x.from), 0));
@@ -329,6 +395,8 @@ export function splitScene(scenes: Scene[], id: ID, parts: SplitPart[]): Scene[]
     note: '',
     kind: parent.kind,
     collapsed: false,
+    orientation: 'horizontal',
+    locked: false,
   }));
   const next = [...scenes];
   next.splice(anchorIdx + 1, 0, ...newScenes);

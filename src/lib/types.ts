@@ -21,7 +21,24 @@ export interface Scene {
   kind: SceneKind;
   /** 折りたたみ状態 */
   collapsed: boolean;
+  /**
+   * コマの向き。horizontal=横長（ページ幅いっぱいを単独で使う行になる）、
+   * vertical=縦長（隣接する縦長・未ロックのコマと横に並んで1つの行を作る）
+   */
+  orientation: PanelOrientation;
+  /**
+   * ロック中は他のコマの含有率・向きの変更で自分の行が組み替わることがない
+   * （常に単独の行として、自分の含有率だけで高さ・幅が決まる）
+   */
+  locked: boolean;
 }
+
+export type PanelOrientation = 'vertical' | 'horizontal';
+
+export const PANEL_ORIENTATIONS: { value: PanelOrientation; label: string }[] = [
+  { value: 'horizontal', label: '横長' },
+  { value: 'vertical', label: '縦長' },
+];
 
 export type SceneKind = 'scene' | 'explain' | 'action' | 'emotion' | 'gag' | 'blank';
 

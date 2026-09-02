@@ -77,6 +77,8 @@ export function useProjectApi(state: AppState) {
           note: '',
           kind: opts.kind ?? 'scene',
           collapsed: false,
+          orientation: 'horizontal',
+          locked: false,
         };
         const scenes = [...p.scenes];
         if (anchor >= 0) {
