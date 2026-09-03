@@ -133,6 +133,29 @@ export function roleMeta(role: LinkRole) {
 
 export type ThreadStatusFilter = 'all' | 'open' | 'resolved' | 'problem';
 
+/** 登場人物。セリフに紐づけて色分けする */
+export interface Character {
+  id: ID;
+  name: string;
+  color: string;
+}
+
+/**
+ * セリフ（吹き出し）。1つのシーン（コマ）に複数持てる。
+ * x/y/width/height はページ割り画面でのコマ内の位置・大きさ(%)。
+ * text の改行はそのまま縦書きの行送りに使われる（文字数の調整に使える）。
+ */
+export interface Dialogue {
+  id: ID;
+  sceneId: ID;
+  characterId: ID | null;
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface Project {
   id: ID;
   title: string;
@@ -143,6 +166,8 @@ export interface Project {
   scenes: Scene[];
   threads: Thread[];
   links: Link[];
+  characters: Character[];
+  dialogues: Dialogue[];
   updatedAt: number;
 }
 

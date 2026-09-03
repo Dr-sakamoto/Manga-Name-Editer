@@ -3,11 +3,15 @@ import type { Api } from '../lib/api';
 import type { AppState } from '../lib/store';
 import { PageMeter } from './PageMeter';
 import { DataDialog } from './DataDialog';
+import { CharacterDialog } from './CharacterDialog';
+import { DialogueDialog } from './DialogueDialog';
 import { emptyProject, sampleProject } from '../lib/sample';
 
 export function Header({ api, state }: { api: Api; state: AppState }) {
   const { project } = api;
   const [dataOpen, setDataOpen] = useState(false);
+  const [charOpen, setCharOpen] = useState(false);
+  const [dialogueOpen, setDialogueOpen] = useState(false);
 
   return (
     <header className="header">
@@ -90,6 +94,15 @@ export function Header({ api, state }: { api: Api; state: AppState }) {
         </label>
       </div>
 
+      <div className="hgroup">
+        <button className="ghost tiny" onClick={() => setCharOpen(true)} title="登場人物を登録する">
+          登場人物
+        </button>
+        <button className="ghost tiny" onClick={() => setDialogueOpen(true)} title="セリフの一覧を編集する">
+          セリフ
+        </button>
+      </div>
+
       <div className="spacer" />
 
       <PageMeter api={api} />
@@ -107,6 +120,8 @@ export function Header({ api, state }: { api: Api; state: AppState }) {
       </div>
 
       {dataOpen && <DataDialog api={api} state={state} onClose={() => setDataOpen(false)} />}
+      {charOpen && <CharacterDialog api={api} onClose={() => setCharOpen(false)} />}
+      {dialogueOpen && <DialogueDialog api={api} onClose={() => setDialogueOpen(false)} />}
     </header>
   );
 }

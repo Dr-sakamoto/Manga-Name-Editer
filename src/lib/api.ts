@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { AppState } from './store';
-import type { ID, Link, LinkRole, Scene, SceneKind, Thread } from './types';
+import type { Character, Dialogue, ID, Link, LinkRole, Scene, SceneKind, Thread } from './types';
 import {
   analyzeThreads,
   collectWarnings,
@@ -273,6 +273,78 @@ export function useProjectApi(state: AppState) {
     [project.threads, addLink, updateProject],
   );
 
+  /* ---------------- 登場人物 ---------------- */
+
+  const addCharacter = useCallback(
+    (name = '') => {
+      const id = uid('ch');
+      updateProject((p) => ({
+        ...p,
+        characters: [...p.characters, { id, name, color: nextThreadColor(p.characters.length) }],
+      }));
+      return id;
+    },
+    [updateProject],
+  );
+
+  const patchCharacter = useCallback(
+    (id: ID, patch: Partial<Character>, mergeKey?: string) =>
+      updateProject(
+        (p) => ({
+          ...p,
+          characters: p.characters.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+        }),
+        mergeKey,
+      ),
+    [updateProject],
+  );
+
+  const deleteCharacter = useCallback(
+    (id: ID) =>
+      updateProject((p) => ({
+        ...p,
+        characters: p.characters.filter((c) => c.id !== id),
+        dialogues: p.dialogues.map((d) =>
+          d.characterId === id ? { ...d, characterId: null } : d,
+        ),
+      })),
+    [updateProject],
+  );
+
+  /* ---------------- セリフ（吹き出し） ---------------- */
+
+  const addDialogue = useCallback(
+    (sceneId: ID, characterId: ID | null = null) => {
+      const id = uid('dl');
+      updateProject((p) => ({
+        ...p,
+        dialogues: [
+          ...p.dialogues,
+          { id, sceneId, characterId, text: '', x: 58, y: 10, width: 26, height: 40 },
+        ],
+      }));
+      return id;
+    },
+    [updateProject],
+  );
+
+  const patchDialogue = useCallback(
+    (id: ID, patch: Partial<Dialogue>, mergeKey?: string) =>
+      updateProject(
+        (p) => ({
+          ...p,
+          dialogues: p.dialogues.map((d) => (d.id === id ? { ...d, ...patch } : d)),
+        }),
+        mergeKey,
+      ),
+    [updateProject],
+  );
+
+  const deleteDialogue = useCallback(
+    (id: ID) => updateProject((p) => ({ ...p, dialogues: p.dialogues.filter((d) => d.id !== id) })),
+    [updateProject],
+  );
+
   return {
     project,
     layout,
@@ -303,6 +375,12 @@ export function useProjectApi(state: AppState) {
     patchLink,
     deleteLink,
     linkToLabel,
+    addCharacter,
+    patchCharacter,
+    deleteCharacter,
+    addDialogue,
+    patchDialogue,
+    deleteDialogue,
     undo: state.undo,
     redo: state.redo,
     canUndo: state.canUndo,

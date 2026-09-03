@@ -48,6 +48,8 @@ function project(scenes: Scene[], threads: Thread[] = [], links: Link[] = []): P
     scenes,
     threads,
     links,
+    characters: [],
+    dialogues: [],
     updatedAt: 0,
   };
 }

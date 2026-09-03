@@ -59,6 +59,21 @@ export function normalizeProject(p: Partial<Project>): Project {
       color: t.color ?? '#5b8dd9',
     })),
     links: p.links ?? [],
+    characters: (p.characters ?? []).map((c) => ({
+      id: c.id,
+      name: c.name ?? '',
+      color: c.color ?? '#5b8dd9',
+    })),
+    dialogues: (p.dialogues ?? []).map((d) => ({
+      id: d.id,
+      sceneId: d.sceneId,
+      characterId: d.characterId ?? null,
+      text: d.text ?? '',
+      x: Number.isFinite(d.x) ? Number(d.x) : 58,
+      y: Number.isFinite(d.y) ? Number(d.y) : 10,
+      width: Number.isFinite(d.width) ? Number(d.width) : 26,
+      height: Number.isFinite(d.height) ? Number(d.height) : 40,
+    })),
     updatedAt: p.updatedAt ?? Date.now(),
   };
   // 親が存在しない孤児はルートに戻す
@@ -67,6 +82,11 @@ export function normalizeProject(p: Partial<Project>): Project {
     s.parentId && !ids.has(s.parentId) ? { ...s, parentId: null } : s,
   );
   project.links = pruneLinks(project);
+  // シーンが無くなったセリフは捨て、キャラクターが無くなったセリフは役なしに戻す
+  const charIds = new Set(project.characters.map((c) => c.id));
+  project.dialogues = project.dialogues
+    .filter((d) => ids.has(d.sceneId))
+    .map((d) => (d.characterId && !charIds.has(d.characterId) ? { ...d, characterId: null } : d));
   return project;
 }
 
